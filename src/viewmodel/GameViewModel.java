@@ -18,6 +18,13 @@ public class GameViewModel {
     public enum GameState { START_SCREEN, PLAYING, PAUSED }
     private GameState gameState;
 
+    //-- 1. Definisikan data makanan dan skornya di sini
+    private final String[] positiveFoodNames = {"steak", "hotdog", "hamburger", "cheesecake", "chocolate", "pudding", "sushi"};
+    private final int[] positiveFoodScores = {20, 20, 20, 10, 10, 10, 10};
+
+    private final String[] negativeFoodNames = {"carrot", "green", "corn", "eggplant", "cucumber"};
+    private final int[] negativeFoodScores = {-10, -10, -10, -10, -10};
+
     public GameViewModel() {
         this.hasilDAO = new HasilDAO();
         this.foodItems = new CopyOnWriteArrayList<>();
@@ -48,53 +55,50 @@ public class GameViewModel {
     public void updateGame(int panelWidth, int panelHeight) {
         if (gameState != GameState.PLAYING) return;
 
-        // Update posisi dan status laso
         lasso.update(player.getPosition(), foodItems);
 
-        // --- LOGIKA BARU UNTUK ANIMASI 2 TAHAP ---
-
-        // 1. Cek jika laso sudah kembali ke pemain
         if (lasso.getState() == Lasso.LassoState.RETRACTING && lasso.getEndPoint().distance(player.getPosition()) < 20) {
             Food caughtFood = lasso.getCaughtFood();
             if (caughtFood != null) {
-                // Tahap 1 Selesai: Ubah status bola untuk memulai animasi ke keranjang
                 caughtFood.setState(Food.FoodState.ANIMATING_TO_BASKET);
             }
-            lasso.reset(); // Reset laso agar bisa digunakan lagi
+            lasso.reset();
         }
 
-        // 2. Proses semua bola sesuai statusnya
         for (Food food : foodItems) {
             if (food.getState() == Food.FoodState.ANIMATING_TO_BASKET) {
-                // Tahap 2: Animasikan bola bergerak ke keranjang (kotak skor)
-                Point basketPosition = new Point(panelWidth - 100, 40); // Koordinat keranjang
-                double dx = basketPosition.x - food.getPosition().x;
-                double dy = basketPosition.y - food.getPosition().y;
+
+                //-- SESUAIKAN KODE INI: Tentukan posisi target keranjang yang baru
+                int basketWidth = 260;
+                int basketHeight = 220;
+                int basketX = panelWidth - basketWidth;
+                int basketY = (panelHeight - basketHeight) / 2;
+                // Targetkan bagian tengah keranjang untuk animasi yang lebih baik
+                Point basketPosition = new Point(basketX + basketWidth / 2, basketY + basketHeight / 2);
+
                 double distance = food.getPosition().distance(basketPosition);
 
                 if (distance < 15) {
-                    // Animasi Selesai: Update skor dan hapus bola
-                    currentScore += food.getValue(); // Skor bertambah
-                    currentCount++; // Jumlah bola bertambah
+                    currentScore += food.getValue();
+                    currentCount++;
                     foodItems.remove(food);
                 } else {
-                    // Masih bergerak ke keranjang
-                    double ratio = 15 / distance; // kecepatan 15 pixel/frame
+                    double dx = basketPosition.x - food.getPosition().x;
+                    double dy = basketPosition.y - food.getPosition().y;
+                    double ratio = 15 / distance;
                     food.getPosition().x += (int) (dx * ratio);
                     food.getPosition().y += (int) (dy * ratio);
                 }
             } else {
-                // Jika status bola bukan animating, gerakkan seperti biasa
                 food.move();
             }
         }
 
-        // Generate makanan baru secara acak
+        //-- 2. Logika generateFood dipanggil dari sini
         if (random.nextInt(100) > 95 && foodItems.size() < 15) {
             generateFood(panelWidth, panelHeight);
         }
 
-        // Hapus makanan yang keluar layar (hanya yang statusnya default)
         foodItems.removeIf(food -> food.getState() == Food.FoodState.DEFAULT && (food.getPosition().x > panelWidth + 50 || food.getPosition().x < -50));
     }
 
@@ -105,13 +109,48 @@ public class GameViewModel {
     }
 
     private void generateFood(int panelWidth, int panelHeight) {
-        int value = (random.nextInt(10) + 1) * 10;
-        Color color = new Color(random.nextInt(256), random.nextInt(256), random.nextInt(256));
+        String name;
+        int value;
+        Food.FoodType type;
+
+        if (random.nextInt(10) < 7) {
+            type = Food.FoodType.POSITIVE;
+            int index = random.nextInt(positiveFoodNames.length);
+            name = positiveFoodNames[index];
+            value = positiveFoodScores[index];
+        } else {
+            type = Food.FoodType.NEGATIVE;
+            int index = random.nextInt(negativeFoodNames.length);
+            name = negativeFoodNames[index];
+            value = negativeFoodScores[index];
+        }
+
+        //-- LOGIKA BARU UNTUK ZONA SPAWN --
+
+        // 1. Tentukan batas zona atas dan bawah
+        int topZoneLimit = panelHeight / 3;
+        int bottomZoneStart = panelHeight * 2 / 3;
+        int foodSize = 64; // Samakan dengan ukuran di GamePanel
+
+        int yPos;
         boolean fromTop = random.nextBoolean();
-        int yPos = fromTop ? random.nextInt(panelHeight / 2 - 50) : (panelHeight / 2) + random.nextInt(panelHeight / 2 - 50);
+
+        if (fromTop) {
+            // Muncul secara acak di 1/3 bagian ATAS layar
+            // Pastikan seluruh gambar berada di dalam zona
+            yPos = random.nextInt(topZoneLimit - foodSize);
+        } else {
+            // Muncul secara acak di 1/3 bagian BAWAH layar
+            yPos = bottomZoneStart + random.nextInt(panelHeight - bottomZoneStart - foodSize);
+        }
+
+        // Penggunaan random.nextInt() memastikan posisi Y tidak akan simetris (tidak selalu di baris yang sama).
+
+        // Tentukan posisi X dan kecepatan seperti sebelumnya
         int xPos = fromTop ? panelWidth : -30;
         int speed = fromTop ? -(random.nextInt(3) + 1) : (random.nextInt(3) + 1);
-        foodItems.add(new Food(xPos, yPos, value, speed, color));
+
+        foodItems.add(new Food(name, value, type, xPos, yPos, speed));
     }
 
     // Getters

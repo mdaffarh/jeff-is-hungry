@@ -1,32 +1,39 @@
 package model;
 
-import java.awt.Color;
 import java.awt.Point;
 
 public class Food {
-    // Menambahkan status untuk bola
+
+    // Enum untuk membedakan jenis makanan
+    public enum FoodType {
+        POSITIVE, // Menambah skor
+        NEGATIVE  // Mengurangi skor
+    }
+
+    // Enum untuk status animasi (seperti sebelumnya)
     public enum FoodState {
-        DEFAULT,          // Bergerak normal melintasi layar
-        CAPTURED_BY_LASSO, // Ditarik oleh laso
-        ANIMATING_TO_BASKET // Bergerak dari pemain ke keranjang skor
+        DEFAULT,
+        CAPTURED_BY_LASSO,
+        ANIMATING_TO_BASKET
     }
 
     private Point position;
-    private final int value;
-    private int speed; // Dihapus final agar bisa diubah
-    private final Color color;
-    private FoodState state; // Variabel untuk menyimpan status
+    private final String name;      // Nama aset, misal: "steak"
+    private final int value;        // Nilai skor (bisa positif atau negatif)
+    private final FoodType type;    // Jenis makanan
+    private FoodState state;
+    private int speed;
 
-    public Food(int x, int y, int value, int speed, Color color) {
-        this.position = new Point(x, y);
+    public Food(String name, int value, FoodType type, int x, int y, int speed) {
+        this.name = name;
         this.value = value;
+        this.type = type;
+        this.position = new Point(x, y);
         this.speed = speed;
-        this.color = color;
-        this.state = FoodState.DEFAULT; // Status awal
+        this.state = FoodState.DEFAULT;
     }
 
     public void move() {
-        // Bola hanya bergerak normal jika statusnya DEFAULT
         if (state == FoodState.DEFAULT) {
             position.translate(speed, 0);
         }
@@ -34,11 +41,11 @@ public class Food {
 
     // Getters
     public Point getPosition() { return position; }
+    public String getName() { return name; }
     public int getValue() { return value; }
-    public Color getColor() { return color; }
+    public FoodType getType() { return type; }
     public FoodState getState() { return state; }
 
     // Setters
     public void setState(FoodState state) { this.state = state; }
-    public void setSpeed(int speed) { this.speed = speed; }
 }
