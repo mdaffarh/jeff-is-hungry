@@ -39,30 +39,38 @@ public class Lasso {
         if (state == LassoState.EXTENDING) {
             moveTowards(targetPoint);
 
-            // Periksa tabrakan dengan bola yang statusnya masih DEFAULT
+            // --- OPTIMASI DI SINI ---
+            // Tentukan kuadrat dari radius tabrakan sekali saja
+            int collisionRadius = 25;
+            int radiusSquared = collisionRadius * collisionRadius; // 25*25 = 625
+
             for (Food food : foodItems) {
-                if (food.getState() == Food.FoodState.DEFAULT && endPoint.distance(food.getPosition()) < 25) {
-                    this.caughtFood = food;
-                    this.caughtFood.setState(Food.FoodState.CAPTURED_BY_LASSO); // Ubah status bola!
-                    this.state = LassoState.RETRACTING;
-                    return;
+                // Cek hanya makanan yang masih default
+                if (food.getState() == Food.FoodState.DEFAULT) {
+                    // Hitung kuadrat jarak, tanpa menggunakan Math.sqrt()
+                    double dx = endPoint.x - food.getPosition().x;
+                    double dy = endPoint.y - food.getPosition().y;
+                    double distanceSquared = dx * dx + dy * dy;
+
+                    // Bandingkan kuadrat jaraknya
+                    if (distanceSquared < radiusSquared) {
+                        this.caughtFood = food;
+                        this.caughtFood.setState(Food.FoodState.CAPTURED_BY_LASSO);
+                        this.state = LassoState.RETRACTING;
+                        return; // Keluar dari loop setelah menemukan target
+                    }
                 }
             }
 
+            // Jika mencapai target tanpa kena bola, tarik kembali
             if (endPoint.distance(targetPoint) < speed) {
                 this.state = LassoState.RETRACTING;
             }
 
         } else if (state == LassoState.RETRACTING) {
             moveTowards(startPoint);
-
             if (caughtFood != null) {
                 caughtFood.getPosition().setLocation(endPoint);
-            }
-
-            if (endPoint.distance(startPoint) < speed) {
-                // Cukup berhenti di sini. ViewModel yang akan proses selanjutnya.
-                // Tidak perlu reset di sini lagi, biarkan ViewModel yang mengontrol.
             }
         }
     }

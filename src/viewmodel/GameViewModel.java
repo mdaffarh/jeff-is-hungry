@@ -5,6 +5,7 @@ import java.awt.*;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.Random;
+import javax.swing.Timer; // Import Timer
 
 public class GameViewModel {
     private final HasilDAO hasilDAO;
@@ -17,6 +18,8 @@ public class GameViewModel {
     private final Random random = new Random();
     public enum GameState { START_SCREEN, PLAYING, PAUSED }
     private GameState gameState;
+    //-- 1. Timer untuk mengatur durasi state aksi (berjalan/makan)
+    private Timer playerActionTimer;
 
     //-- 1. Definisikan data makanan dan skornya di sini
     private final String[] positiveFoodNames = {"steak", "hotdog", "hamburger", "cheesecake", "chocolate", "pudding", "sushi"};
@@ -55,9 +58,33 @@ public class GameViewModel {
     public void updateGame(int panelWidth, int panelHeight) {
         if (gameState != GameState.PLAYING) return;
 
-        lasso.update(player.getPosition(), foodItems);
+        //-- LOGIKA BARU UNTUK MENENTUKAN POSISI AWAL LIDAH --
 
-        if (lasso.getState() == Lasso.LassoState.RETRACTING && lasso.getEndPoint().distance(player.getPosition()) < 20) {
+        // 1. Dapatkan posisi tengah dan arah hadap pemain
+        Point playerCenter = player.getPosition();
+        Player.Direction facing = player.getFacing();
+
+        // 2. Tentukan offset dari tengah karakter ke mulutnya
+        //    (Anda bisa mengubah angka ini sesuai dengan gambar karakter Anda)
+        int forwardOffset = 30; // Seberapa jauh ke depan dari tengah
+        int verticalOffset = 35;  // Seberapa jauh ke bawah dari tengah
+
+        // 3. Hitung posisi akhir mulut berdasarkan arah hadap
+        Point tongueOrigin;
+        if (facing == Player.Direction.RIGHT) {
+            // Jika menghadap ke kanan, offset maju ditambahkan
+            tongueOrigin = new Point(playerCenter.x + forwardOffset, playerCenter.y + verticalOffset);
+        } else { // Menghadap ke KIRI
+            // Jika menghadap ke kiri, offset maju dikurangi
+            tongueOrigin = new Point(playerCenter.x - forwardOffset, playerCenter.y + verticalOffset);
+        }
+
+        // 4. Gunakan posisi mulut (tongueOrigin) sebagai titik awal laso
+        lasso.update(tongueOrigin, foodItems);
+
+
+        // Sisa dari logika di bawah ini tidak berubah...
+        if (lasso.getState() == Lasso.LassoState.RETRACTING && lasso.getEndPoint().distance(tongueOrigin) < 20) {
             Food caughtFood = lasso.getCaughtFood();
             if (caughtFood != null) {
                 caughtFood.setState(Food.FoodState.ANIMATING_TO_BASKET);
@@ -102,11 +129,59 @@ public class GameViewModel {
         foodItems.removeIf(food -> food.getState() == Food.FoodState.DEFAULT && (food.getPosition().x > panelWidth + 50 || food.getPosition().x < -50));
     }
 
+    //-- 2. Metode baru untuk mengubah state pemain secara sementara
+    // Metode setPlayerActionState sekarang hanya untuk aksi non-gerakan (EAT)
+    private void setPlayerActionState(Player.PlayerState actionState, int durationMs) {
+        if (player.getState() == actionState && playerActionTimer != null && playerActionTimer.isRunning()) {
+            playerActionTimer.restart();
+            return;
+        }
+        if (playerActionTimer != null) {
+            playerActionTimer.stop();
+        }
+        player.setState(actionState);
+        playerActionTimer = new Timer(durationMs, e -> player.setState(Player.PlayerState.IDLE));
+        playerActionTimer.setRepeats(false);
+        playerActionTimer.start();
+    }
+
     public void fireLasso(Point target) {
         if (lasso.isIdle()) {
             lasso.fire(target);
+            //-- 3. Set state pemain menjadi EATING saat menembak laso
+            setPlayerActionState(Player.PlayerState.EATING, 500); // Durasi 500 ms
         }
     }
+
+    // Metode movePlayer tidak lagi menggunakan timer, hanya mengubah state
+    public void movePlayer(String direction) {
+        if (player == null) return;
+
+        player.setState(Player.PlayerState.WALKING); // Langsung set state ke WALKING
+
+        int speed = 10;
+        switch (direction) {
+            case "UP": player.move(0, -speed); break;
+            case "DOWN": player.move(0, speed); break;
+            case "LEFT":
+                player.move(-speed, 0);
+                player.setFacing(Player.Direction.LEFT);
+                break;
+            case "RIGHT":
+                player.move(speed, 0);
+                player.setFacing(Player.Direction.RIGHT);
+                break;
+        }
+    }
+
+    //-- Metode baru untuk mengembalikan state ke IDLE saat tombol dilepas
+    public void stopWalking() {
+        // Hanya ubah ke IDLE jika state saat ini adalah WALKING
+        if (player != null && player.getState() == Player.PlayerState.WALKING) {
+            player.setState(Player.PlayerState.IDLE);
+        }
+    }
+
 
     private void generateFood(int panelWidth, int panelHeight) {
         String name;
