@@ -1,5 +1,6 @@
 package view;
 
+import model.FloatingScore;
 import model.Food;
 import model.Lasso;
 import model.Player;
@@ -110,12 +111,26 @@ public class GamePanel extends JPanel implements ActionListener {
             @Override
             public void keyPressed(KeyEvent e) {
                 int keyCode = e.getKeyCode();
-                if (isMovementKey(keyCode)) {
-                    activeKeys.add(keyCode);
-                    handleMovement();
-                } else if (keyCode == KeyEvent.VK_SPACE) {
-                    viewModel.stopGameAndSave();
-                    mainWindow.showPanel("StartScreen");
+                GameViewModel.GameState currentState = viewModel.getGameState();
+
+                // Logika input bergantung pada state game saat ini
+                if (currentState == GameViewModel.GameState.PLAYING) {
+                    if (isMovementKey(keyCode)) {
+                        activeKeys.add(keyCode);
+                        handleMovement();
+                    } else if (keyCode == KeyEvent.VK_SPACE) {
+                        // Saat bermain, spasi akan mem-PAUSE game
+                        viewModel.pauseGame();
+                    }
+                } else if (currentState == GameViewModel.GameState.PAUSED) {
+                    if (keyCode == KeyEvent.VK_ENTER) {
+                        // Saat pause, Enter akan me-RESUME game
+                        viewModel.resumeGame();
+                    } else if (keyCode == KeyEvent.VK_SPACE) {
+                        // Saat pause, Spasi akan kembali ke MENU
+                        viewModel.stopGameAndSave();
+                        mainWindow.showPanel("StartScreen");
+                    }
                 }
             }
 
@@ -177,23 +192,28 @@ public class GamePanel extends JPanel implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        //-- KETERANGAN PERUBAHAN: Logika game hanya di-update saat PLAYING,
+        //-- tetapi repaint() selalu berjalan agar layar pause bisa ditampilkan.
         if (viewModel.getGameState() == GameViewModel.GameState.PLAYING) {
             viewModel.updateGame(getWidth(), getHeight());
-            repaint();
         }
+        repaint(); // Selalu repaint untuk update tampilan
     }
-
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        if (viewModel.getGameState() != GameViewModel.GameState.PLAYING) return;
+
+        // Cek null untuk mencegah error saat startup
+        if (viewModel.getPlayer() == null) return;
 
         if (backgroundImage != null) {
             g.drawImage(backgroundImage, 0, 0, getWidth(), getHeight(), this);
         }
 
         Graphics2D g2d = (Graphics2D) g;
+        // Aktifkan Anti-aliasing untuk gambar dan teks agar lebih halus
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
         // Menggambar Karakter Pemain
         Player player = viewModel.getPlayer();
@@ -276,6 +296,9 @@ public class GamePanel extends JPanel implements ActionListener {
                 g2d.setTransform(oldTransform);
             }
         }
+
+
+
         // Menggambar Keranjang Skor
         if (basketImage != null) {
             int basketWidth = 260;
@@ -303,6 +326,54 @@ public class GamePanel extends JPanel implements ActionListener {
             g2d.setColor(Color.WHITE);
             g2d.drawString(scoreText, textX, scoreY);
             g2d.drawString(countText, textX, countY);
+        }
+
+        // --- KETERANGAN: PINDAHKAN BLOK KODE INI KE SINI (PALING AKHIR) ---
+        // Menggambar Semua Skor yang Mengambang (Floating Scores)
+        // Ini harus digambar paling akhir agar tampil di lapisan teratas
+        for (FloatingScore fs : viewModel.getFloatingScores()) {
+            // Atur font dan warna
+            g2d.setFont(customFont.deriveFont(Font.BOLD, 22f));
+            g2d.setColor(fs.getColor());
+
+            // Atur transparansi untuk efek fade-out
+            float alpha = (float) fs.getLifespan() / fs.getMaxLifespan();
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0, alpha)));
+
+            // Gambar teks di posisinya yang bergerak
+            Point.Float pos = fs.getPosition();
+            g2d.drawString(fs.getText(), (int)pos.x, (int)pos.y);
+        }
+
+        // Penting: Kembalikan composite ke normal setelah selesai
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+
+        //-- KETERANGAN PERUBAHAN: Tambahkan blok ini di akhir untuk menggambar overlay pause
+        if (viewModel.getGameState() == GameViewModel.GameState.PAUSED) {
+            // 1. Gambar lapisan gelap semi-transparan di seluruh layar
+            g2d.setColor(new Color(0, 0, 0, 150)); // Hitam dengan 150/255 alpha
+            g2d.fillRect(0, 0, getWidth(), getHeight());
+
+            // 2. Gambar teks "GAME PAUSED"
+            g2d.setFont(customFont.deriveFont(Font.BOLD, 50f));
+            g2d.setColor(Color.WHITE);
+            String pauseText = "GAME PAUSED";
+            FontMetrics metrics = g2d.getFontMetrics();
+            int x = (getWidth() - metrics.stringWidth(pauseText)) / 2;
+            int y = getHeight() / 2 - 50;
+            g2d.drawString(pauseText, x, y);
+
+            // 3. Gambar teks instruksi
+            g2d.setFont(customFont.deriveFont(Font.PLAIN, 20f));
+            // --- KETERANGAN PERBAIKAN: Ambil ulang FontMetrics SETELAH mengganti font ---
+            FontMetrics metricsSmall = g2d.getFontMetrics();
+
+            String resumeText = "Press Enter to Resume";
+            String menuText = "Press Space to Back to Menu";
+            int xResume = (getWidth() - metricsSmall.stringWidth(resumeText)) / 2;
+            int xMenu = (getWidth() - metricsSmall.stringWidth(menuText)) / 2;
+            g2d.drawString(resumeText, xResume, y + 60);
+            g2d.drawString(menuText, xMenu, y + 90);
         }
     }
 

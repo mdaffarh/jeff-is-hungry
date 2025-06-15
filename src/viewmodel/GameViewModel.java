@@ -12,6 +12,9 @@ public class GameViewModel {
     private Player player;
     private Lasso lasso;
     private final List<Food> foodItems;
+    //-- 1. List baru untuk menampung semua objek skor yang mengambang
+    private final List<FloatingScore> floatingScores;
+
     private int currentScore;
     private int currentCount;
     private String username;
@@ -31,7 +34,22 @@ public class GameViewModel {
     public GameViewModel() {
         this.hasilDAO = new HasilDAO();
         this.foodItems = new CopyOnWriteArrayList<>();
+        // Inisialisasi list baru
+        this.floatingScores = new CopyOnWriteArrayList<>();
         this.gameState = GameState.START_SCREEN;
+    }
+
+    //-- 2. Tambahkan metode untuk PAUSE dan RESUME
+    public void pauseGame() {
+        if (this.gameState == GameState.PLAYING) {
+            this.gameState = GameState.PAUSED;
+        }
+    }
+
+    public void resumeGame() {
+        if (this.gameState == GameState.PAUSED) {
+            this.gameState = GameState.PLAYING;
+        }
     }
 
     public void startGame(String username, int panelWidth, int panelHeight) {
@@ -57,6 +75,13 @@ public class GameViewModel {
 
     public void updateGame(int panelWidth, int panelHeight) {
         if (gameState != GameState.PLAYING) return;
+
+        //-- 2. Update dan hapus skor mengambang yang sudah tidak aktif
+        for (FloatingScore fs : floatingScores) {
+            fs.update();
+        }
+        floatingScores.removeIf(fs -> !fs.isAlive());
+
 
         //-- LOGIKA BARU UNTUK MENENTUKAN POSISI AWAL LIDAH --
 
@@ -108,6 +133,8 @@ public class GameViewModel {
                 if (distance < 15) {
                     currentScore += food.getValue();
                     currentCount++;
+                    //-- 3. Buat objek FloatingScore saat makanan sampai di keranjang
+                    createFloatingScore(food, basketPosition);
                     foodItems.remove(food);
                 } else {
                     double dx = basketPosition.x - food.getPosition().x;
@@ -127,6 +154,20 @@ public class GameViewModel {
         }
 
         foodItems.removeIf(food -> food.getState() == Food.FoodState.DEFAULT && (food.getPosition().x > panelWidth + 50 || food.getPosition().x < -50));
+    }
+
+    //-- 4. Metode helper baru untuk membuat FloatingScore
+    private void createFloatingScore(Food food, Point position) {
+        int value = food.getValue();
+        String text = (value > 0 ? "+" : "") + value; // Tambahkan tanda '+' jika positif
+        Color color = (value > 0 ? new Color(34, 139, 34) : Color.RED); // Hijau untuk positif, Merah untuk negatif
+
+        floatingScores.add(new FloatingScore(text, position, color));
+    }
+
+    //-- 5. Getter baru agar View bisa mengakses list skor mengambang
+    public List<FloatingScore> getFloatingScores() {
+        return floatingScores;
     }
 
     //-- 2. Metode baru untuk mengubah state pemain secara sementara

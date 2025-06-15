@@ -25,9 +25,9 @@ public class MainWindow extends JFrame {
         mainPanel.add(gamePanel, "GamePanel");
 
         this.add(mainPanel);
-        this.setTitle("Shark Food Collector");
+        this.setTitle("Jeff is Hungry");
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        this.setSize(800, 600);
+        this.setSize(900, 700);
         this.setLocationRelativeTo(null); // Center the window
         this.setVisible(true);
     }
