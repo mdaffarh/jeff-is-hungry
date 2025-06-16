@@ -1,5 +1,6 @@
 package viewmodel;
 
+import audio.AudioManager;
 import model.*;
 import java.awt.*;
 import java.util.List;
@@ -23,6 +24,9 @@ public class GameViewModel {
     private GameState gameState;
     //-- 1. Timer untuk mengatur durasi state aksi (berjalan/makan)
     private Timer playerActionTimer;
+    // Tambahkan variabel ini di atas class GameViewModel
+    private long lastFootstepTime = 0;
+    private final long FOOTSTEP_DELAY = 250; // Jeda 250 ms antar langkah
 
     //-- 1. Definisikan data makanan dan skornya di sini
     private final String[] positiveFoodNames = {"steak", "hotdog", "hamburger", "cheesecake", "chocolate", "pudding", "sushi"};
@@ -188,15 +192,22 @@ public class GameViewModel {
 
     public void fireLasso(Point target) {
         if (lasso.isIdle()) {
+            AudioManager.getInstance().playSound("eat_sound"); // <-- Tambahkan ini
             lasso.fire(target);
-            //-- 3. Set state pemain menjadi EATING saat menembak laso
-            setPlayerActionState(Player.PlayerState.EATING, 500); // Durasi 500 ms
+            setPlayerActionState(Player.PlayerState.EATING, 500);
         }
     }
 
     // Metode movePlayer tidak lagi menggunakan timer, hanya mengubah state
     public void movePlayer(String direction) {
         if (player == null) return;
+
+        // Logika untuk memutar suara langkah dengan jeda
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastFootstepTime > FOOTSTEP_DELAY) {
+            AudioManager.getInstance().playSound("footstep");
+            lastFootstepTime = currentTime;
+        }
 
         player.setState(Player.PlayerState.WALKING); // Langsung set state ke WALKING
 

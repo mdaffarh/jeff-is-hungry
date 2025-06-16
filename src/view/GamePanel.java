@@ -95,7 +95,7 @@ public class GamePanel extends JPanel implements ActionListener {
             e.printStackTrace();
         }
 
-        try (InputStream is = getClass().getResourceAsStream("/fonts/Pixelify.ttf")) {
+        try (InputStream is = getClass().getResourceAsStream("/font/Pixelify.ttf")) {
             if (is == null) throw new IOException("File font tidak ditemukan: Pixelify.ttf");
             Font baseFont = Font.createFont(Font.TRUETYPE_FONT, is);
             GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(baseFont);
