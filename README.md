@@ -1,5 +1,5 @@
 # Jeff is Hungry
-![New Piskel-1 png(1)](https://github.com/user-attachments/assets/6377ff1c-5b2c-421f-be63-4d5780463823)
+![title](https://github.com/user-attachments/assets/c277f516-a2c7-442f-9da0-d3d3a280531e)
 
 **Jeff is Hungry** adalah sebuah game kasual 2D di mana pemain mengendalikan karakter bernama Jeff untuk menangkap dan memakan makanan yang muncul di layar. Game ini dibuat dengan Java, menggunakan model arsitektur MVVM (Model-View-ViewModel).
 
