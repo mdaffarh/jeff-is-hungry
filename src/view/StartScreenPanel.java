@@ -1,10 +1,11 @@
 package view;
 
 import audio.AudioManager;
-import model.Hasil;
+import model.Result;
 import viewmodel.GameViewModel;
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -13,9 +14,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.awt.FontFormatException;
-import javax.swing.plaf.basic.BasicScrollBarUI; // <-- Import baru untuk UI Scrollbar
+
+/**
+ * StartScreenPanel adalah panel yang berfungsi sebagai menu utama permainan.
+ * Panel ini menampilkan judul, papan peringkat (leaderboard), input username,
+ * dan tombol-tombol navigasi seperti Play, Credit, dan Exit.
+ */
 
 public class StartScreenPanel extends JPanel {
+    // Dependensi & Komponen Utama
     private final MainWindow mainWindow;
     private final GameViewModel viewModel;
 
@@ -23,93 +30,92 @@ public class StartScreenPanel extends JPanel {
     private JTextField usernameField;
     private JTable scoreTable;
     private DefaultTableModel tableModel;
+    private JButton muteToggleButton;
 
     // Aset Gambar & Font
     private Image menuBackgroundImage, titleImage, playButtonImage, creditButtonImage, exitButtonImage;
+    private ImageIcon soundIcon, mutedIcon;
     private Font pixelifyFont;
 
-    //-- 1. Variabel baru untuk tombol dan ikon mute
-    private JButton muteToggleButton;
-    private ImageIcon soundIcon, mutedIcon;
-
+    /**
+     * Constructor untuk StartScreenPanel.
+     * @param mainWindow Referensi ke jendela utama aplikasi.
+     * @param viewModel Referensi ke ViewModel yang berisi logika game.
+     */
     public StartScreenPanel(MainWindow mainWindow, GameViewModel viewModel) {
         this.mainWindow = mainWindow;
         this.viewModel = viewModel;
-
-        // Hanya panggil dua metode ini di constructor
         loadAssets();
         initUI();
     }
 
+    /**
+     * Memuat semua aset gambar dan font dari folder resources.
+     * Dipanggil sekali saat inisialisasi.
+     */
     private void loadAssets() {
         try {
-            // Memuat font kustom
-            try (InputStream is = getClass().getResourceAsStream("/font/Pixelify.ttf")) {
-                if (is == null) throw new IOException("File font tidak ditemukan: Pixelify.ttf");
-                pixelifyFont = Font.createFont(Font.TRUETYPE_FONT, is);
-                GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(pixelifyFont);
-            } catch (FontFormatException e) {
-                e.printStackTrace();
-                pixelifyFont = new Font("Arial", Font.PLAIN, 12);
-            }
-
-            // Memuat semua gambar UI
+            // Memuat Aset Gambar UI
             menuBackgroundImage = ImageIO.read(getClass().getResourceAsStream("/images/menu/menu-background.png"));
             titleImage = ImageIO.read(getClass().getResourceAsStream("/images/menu/title.png"));
             playButtonImage = ImageIO.read(getClass().getResourceAsStream("/images/menu/play.png"));
             creditButtonImage = ImageIO.read(getClass().getResourceAsStream("/images/menu/credit.png"));
             exitButtonImage = ImageIO.read(getClass().getResourceAsStream("/images/menu/exit.png"));
-
-            //-- 2. Muat ikon untuk tombol mute
             soundIcon = new ImageIcon(getClass().getResource("/images/menu/sound.png"));
             mutedIcon = new ImageIcon(getClass().getResource("/images/menu/muted.png"));
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
+            System.err.println("Gagal memuat salah satu aset gambar menu!");
             e.printStackTrace();
-            System.err.println("Gagal memuat salah satu aset menu!");
+        }
+
+        try (InputStream is = getClass().getResourceAsStream("/font/Pixelify.ttf")) {
+            // Memuat Aset Font Kustom
+            if (is == null) throw new IOException("File font tidak ditemukan: Pixelify.ttf");
+            pixelifyFont = Font.createFont(Font.TRUETYPE_FONT, is);
+            GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(pixelifyFont);
+        } catch (IOException | FontFormatException e) {
+            System.err.println("Gagal memuat font kustom. Menggunakan font default.");
+            pixelifyFont = new Font("Arial", Font.PLAIN, 12);
         }
     }
 
+    /**
+     * Menginisialisasi dan menata semua komponen UI menggunakan GridBagLayout untuk responsivitas.
+     */
     private void initUI() {
-        setLayout(new BorderLayout());
+        this.setLayout(new BorderLayout());
 
+        // Panel konten utama dibuat transparan agar background panel utama terlihat
         JPanel contentPanel = new JPanel(new GridBagLayout());
         contentPanel.setOpaque(false);
         GridBagConstraints gbc = new GridBagConstraints();
 
-        // 1. Judul Game
+        // Judul Game (Gambar)
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.gridwidth = 2;
-        gbc.insets = new Insets(20, 10, 20, 10);
+        gbc.gridwidth = 2; // Membentang 2 kolom
         gbc.anchor = GridBagConstraints.PAGE_START;
+        gbc.insets = new Insets(20, 10, 20, 10);
         if (titleImage != null) {
             contentPanel.add(new JLabel(new ImageIcon(titleImage)), gbc);
         }
 
-        // 2. Tabel Skor
-        tableModel = new DefaultTableModel(new String[]{"Username", "Score", "Count"}, 0);
-        scoreTable = new JTable(tableModel);
-        styleTable(scoreTable);
-        JScrollPane scrollPane = new JScrollPane(scoreTable);
-        styleScrollPane(scrollPane);
-
+        // Panel Papan Peringkat (kiri)
+        JScrollPane leaderboardPane = createLeaderboardComponent();
         gbc.gridx = 0;
         gbc.gridy = 1;
         gbc.gridwidth = 1;
-        gbc.weightx = 0.6;
+        gbc.weightx = 0.6; // Mengambil 60% lebar
         gbc.weighty = 1.0;
         gbc.fill = GridBagConstraints.BOTH;
         gbc.insets = new Insets(10, 50, 50, 10);
-        contentPanel.add(scrollPane, gbc);
+        contentPanel.add(leaderboardPane, gbc);
 
-        // 3. Panel Kanan (memanggil metode helper yang berisi pembuatan tombol)
-        JPanel rightPanel = createRightPanel();
-        rightPanel.setOpaque(false);
-
+        // Panel Aksi (kanan)
+        JPanel rightPanel = createRightPanelComponent();
         gbc.gridx = 1;
         gbc.gridy = 1;
-        gbc.weightx = 0.4;
-        gbc.fill = GridBagConstraints.BOTH;
+        gbc.weightx = 0.4; // Mengambil 40% lebar
         gbc.insets = new Insets(10, 10, 50, 0);
         contentPanel.add(rightPanel, gbc);
 
@@ -118,19 +124,34 @@ public class StartScreenPanel extends JPanel {
         // Panggil metode-metode ini setelah semua komponen UI dibuat
         populateScoreTable();
         addListeners();
-
-        // Panggil metode untuk mengatur ikon tombol awal sesuai status AudioManager
         updateMuteButtonIcon();
     }
 
-    // Metode ini hanya bertanggung jawab membuat panel kanan dan tombol-tombolnya
-    // Pastikan listener hanya ditambahkan di sini.
-    private JPanel createRightPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 0);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+    /**
+     * Membuat dan menata komponen JScrollPane yang berisi tabel papan peringkat.
+     * @return JScrollPane yang sudah di-style.
+     */
+    private JScrollPane createLeaderboardComponent() {
+        tableModel = new DefaultTableModel(new String[]{"Username", "Score", "Count"}, 0);
+        scoreTable = new JTable(tableModel);
+        styleTable(scoreTable);
+        JScrollPane scrollPane = new JScrollPane(scoreTable);
+        styleScrollPane(scrollPane);
+        return scrollPane;
+    }
 
+    /**
+     * Membuat dan menata panel kanan yang berisi input username dan semua tombol aksi.
+     * @return JPanel yang sudah berisi semua komponen kanan.
+     */
+    private JPanel createRightPanelComponent() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(10, 10, 10, 0);
+
+        // Input Username
         usernameField = new JTextField("ENTER USERNAME");
         styleTextField(usernameField);
         gbc.gridx = 0;
@@ -138,47 +159,44 @@ public class StartScreenPanel extends JPanel {
         gbc.gridwidth = 2;
         panel.add(usernameField, gbc);
 
+        // Tombol Play
         JButton playButton = createImageButton(playButtonImage);
-        playButton.addActionListener(e -> {
-            AudioManager.getInstance().playSound("button_click");
-            onPlayButtonClicked();
-        });
+        playButton.addActionListener(e -> onPlayButtonClicked());
         gbc.gridy = 1;
         panel.add(playButton, gbc);
 
+        // Tombol Credit
         JButton creditButton = createImageButton(creditButtonImage);
-        // HANYA ADA SATU addActionListener UNTUK TOMBOL KREDIT DI SINI
-        creditButton.addActionListener(e -> {
-            AudioManager.getInstance().playSound("button_click");
-            onCreditButtonClicked();
-        });
+        creditButton.addActionListener(e -> onCreditButtonClicked());
         gbc.gridy = 2;
         gbc.gridwidth = 1;
         panel.add(creditButton, gbc);
 
+        // Tombol Exit
         JButton exitButton = createImageButton(exitButtonImage);
-        exitButton.addActionListener(e -> {
-            AudioManager.getInstance().playSound("button_click");
-            System.exit(0);
-        });
+        exitButton.addActionListener(e -> System.exit(0));
         gbc.gridx = 1;
         gbc.gridy = 2;
         panel.add(exitButton, gbc);
 
-        //-- KETERANGAN: Tombol Mute ditambahkan di sini
-        muteToggleButton = createImageButton(soundIcon.getImage());
-        gbc.gridx = 1; // Kolom kanan
-        gbc.gridy = 3; // Baris baru di paling bawah
-        gbc.weighty = 1.0; // Memberi sisa ruang vertikal ke baris ini
-        gbc.fill = GridBagConstraints.NONE; // Tidak meregangkan tombol
-        gbc.anchor = GridBagConstraints.SOUTHEAST; // Posisi di pojok kanan bawah sel
+        // Tombol Mute
+        muteToggleButton = createImageButton(soundIcon != null ? soundIcon.getImage() : null);
+        muteToggleButton.addActionListener(e -> onMuteButtonClicked());
+        gbc.gridx = 1;
+        gbc.gridy = 3;
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.anchor = GridBagConstraints.SOUTHEAST;
         panel.add(muteToggleButton, gbc);
 
         return panel;
     }
 
+    /**
+     * Menambahkan listener yang tidak terkait langsung dengan pembuatan tombol,
+     * seperti listener untuk tabel, text field, dan panel itu sendiri.
+     */
     private void addListeners() {
-        // Metode ini HANYA untuk listener yang tidak terkait tombol
         scoreTable.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 int selectedRow = scoreTable.getSelectedRow();
@@ -203,30 +221,11 @@ public class StartScreenPanel extends JPanel {
                 populateScoreTable();
             }
         });
-
-        //-- 4. Tambahkan ActionListener untuk tombol mute
-        muteToggleButton.addActionListener(e -> {
-            AudioManager audio = AudioManager.getInstance();
-            // Balik status mute saat ini
-            audio.setMuted(!audio.isMuted());
-            // Perbarui ikon dan putar/hentikan musik
-            updateMuteButtonIcon();
-        });
     }
 
-    //-- 5. Metode helper baru untuk mengupdate ikon dan musik
-    private void updateMuteButtonIcon() {
-        AudioManager audio = AudioManager.getInstance();
-        if (audio.isMuted()) {
-            muteToggleButton.setIcon(mutedIcon);
-            audio.stopSound("menu_music"); // Pastikan musik berhenti jika di-mute
-        } else {
-            muteToggleButton.setIcon(soundIcon);
-            audio.loopSound("menu_music"); // Putar musik jika tidak di-mute
-        }
-    }
-
+    // Logika Aksi Tombol
     private void onPlayButtonClicked() {
+        AudioManager.getInstance().playSound("button_click");
         String username = usernameField.getText().trim();
         if (username.isEmpty() || username.equals("ENTER USERNAME")) {
             JOptionPane.showMessageDialog(this, "Please enter a username.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -237,15 +236,40 @@ public class StartScreenPanel extends JPanel {
     }
 
     private void onCreditButtonClicked() {
+        AudioManager.getInstance().playSound("button_click");
         CreditsDialog creditsDialog = new CreditsDialog(mainWindow, pixelifyFont);
         creditsDialog.setVisible(true);
     }
 
+    private void onMuteButtonClicked() {
+        AudioManager audio = AudioManager.getInstance();
+        audio.setMuted(!audio.isMuted());
+        updateMuteButtonIcon();
+    }
+
+    /**
+     * Mengupdate ikon tombol mute dan memutar/menghentikan musik sesuai status.
+     */
+    private void updateMuteButtonIcon() {
+        AudioManager audio = AudioManager.getInstance();
+        if (audio.isMuted()) {
+            muteToggleButton.setIcon(mutedIcon);
+            audio.stopSound("menu_music");
+        } else {
+            muteToggleButton.setIcon(soundIcon);
+            audio.loopSound("menu_music");
+        }
+    }
+
+    /**
+     * Memuat data skor dari ViewModel dan menampilkannya di tabel.
+     */
     private void populateScoreTable() {
         tableModel.setRowCount(0);
-        List<Hasil> scores = viewModel.getAllScores();
-        for (Hasil hasil : scores) {
-            tableModel.addRow(new Object[]{hasil.getUsername(), hasil.getSkor(), hasil.getCount()});
+        List<Result> scores = viewModel.getAllScores();
+        if (scores == null) return;
+        for (Result result : scores) {
+            tableModel.addRow(new Object[]{result.getUsername(), result.getSkor(), result.getCount()});
         }
     }
 
@@ -272,7 +296,7 @@ public class StartScreenPanel extends JPanel {
 
     private void styleTable(JTable table) {
         table.setFont(pixelifyFont.deriveFont(16f));
-        // KETERANGAN: Memberi warna latar pada tabel
+        // Memberi warna latar pada tabel
         table.setBackground(new Color(245, 222, 179, 230)); // Warna krem gandum, sedikit transparan
         table.setForeground(new Color(87, 58, 24)); // Coklat tua
         table.setRowHeight(25);
@@ -284,7 +308,7 @@ public class StartScreenPanel extends JPanel {
         table.getTableHeader().setForeground(Color.WHITE);
     }
 
-    //-- KETERANGAN: Metode ini sekarang juga mengatur style untuk Scrollbar
+    // style untuk Scrollbar
     private void styleScrollPane(JScrollPane sp) {
         sp.getViewport().setBackground(new Color(245, 222, 179, 230));
         sp.setBorder(BorderFactory.createLineBorder(new Color(60, 42, 42), 3));
@@ -296,18 +320,18 @@ public class StartScreenPanel extends JPanel {
     }
 
 
+    /**
+     * Menggambar background utama panel.
+     * Komponen lain digambar oleh Swing, bukan di sini.
+     */
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        // Gambar background terlebih dahulu agar menutupi seluruh panel
         if (menuBackgroundImage != null) {
             g.drawImage(menuBackgroundImage, 0, 0, this.getWidth(), this.getHeight(), this);
         }
-        // KETERANGAN: Gambar judul dan placeholder "LEADERBOARD" tidak lagi digambar di sini,
-        // karena sudah menjadi komponen (JLabel) yang dikelola oleh Layout Manager.
     }
 
-    //-- KETERANGAN: Kelas baru ditambahkan di sini untuk mendefinisikan tampilan Scrollbar --
     /**
      * Kelas kustom untuk membuat UI scrollbar yang sesuai dengan tema pixel art.
      */

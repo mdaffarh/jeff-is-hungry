@@ -1,17 +1,18 @@
 package model;
 
-public class Hasil {
+public class Result {
     private String username;
     private int skor;
     private int count;
 
-    public Hasil(String username, int skor, int count) {
+    // constructor
+    public Result(String username, int skor, int count) {
         this.username = username;
         this.skor = skor;
         this.count = count;
     }
 
-    // Getters and Setters
+    // getters and setters
     public String getUsername() { return username; }
     public int getSkor() { return skor; }
     public int getCount() { return count; }

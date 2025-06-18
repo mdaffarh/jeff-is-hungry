@@ -6,17 +6,29 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Kelas AudioManager (Singleton) untuk mengelola semua pemutaran suara dan musik dalam game.
+ * Menggunakan satu instance untuk diakses dari seluruh bagian aplikasi.
+ */
 public class AudioManager {
+    // Satu-satunya instance dari AudioManager (Singleton Pattern)
     private static AudioManager instance;
+    // Penyimpanan untuk semua klip audio yang sudah dimuat, diakses dengan nama
     private final Map<String, Clip> sounds;
-
-    //-- 1. Variabel baru untuk menyimpan status mute
+    // Flag untuk menyimpan status mute global
     private boolean isMuted = false;
 
+    /**
+     * Constructor privat untuk mencegah pembuatan instance dari luar kelas (Singleton).
+     */
     private AudioManager() {
         sounds = new HashMap<>();
     }
 
+    /**
+     * Menyediakan akses global ke satu-satunya instance AudioManager.
+     * @return Instance tunggal dari AudioManager.
+     */
     public static AudioManager getInstance() {
         if (instance == null) {
             instance = new AudioManager();
@@ -24,12 +36,18 @@ public class AudioManager {
         return instance;
     }
 
-    //-- 2. Metode untuk mengontrol dan memeriksa status mute
+    /**
+     * Memeriksa apakah audio sedang dalam mode mute.
+     * @return true jika di-mute, false jika tidak.
+     */
     public boolean isMuted() {
         return isMuted;
     }
 
-    //-- KETERANGAN: Logika di dalam metode ini diperbaiki --
+    /**
+     * Mengatur status mute dan menghentikan musik latar jika di-mute.
+     * @param muted Status mute yang baru.
+     */
     public void setMuted(boolean muted) {
         this.isMuted = muted;
         if (this.isMuted) {
@@ -38,6 +56,11 @@ public class AudioManager {
         }
     }
 
+    /**
+     * Memuat file audio dari path dan menyimpannya ke dalam map untuk digunakan nanti.
+     * @param name Nama kunci untuk mengakses suara (contoh: "button_click").
+     * @param path Path ke file audio di dalam folder resources (contoh: "/audio/sound.wav").
+     */
     public void loadSound(String name, String path) {
         try (InputStream audioSrc = getClass().getResourceAsStream(path);
              BufferedInputStream bufferedIn = new BufferedInputStream(audioSrc)) {
@@ -54,23 +77,28 @@ public class AudioManager {
         }
     }
 
+    /**
+     * Memutar efek suara (SFX) satu kali dari awal.
+     * @param name Nama kunci dari suara yang akan diputar.
+     */
     public void playSound(String name) {
-        // Suara efek singkat tetap bisa diputar meskipun musik di-mute,
-        // jika Anda ingin mematikan semua suara, tambahkan if(isMuted) return; di sini.
+        // Efek suara singkat bisa tetap diputar meskipun musik di-mute.
         Clip clip = sounds.get(name);
         if (clip != null) {
-//            if (clip.isRunning()) {
-//                clip.stop();
-//            }
-            clip.setFramePosition(0);
+            clip.setFramePosition(0); // Putar dari awal
             clip.start();
         }
     }
 
+    /**
+     * Memutar musik secara terus-menerus (looping).
+     * Tidak akan memutar apapun jika status sedang mute.
+     * @param name Nama kunci dari musik yang akan diputar.
+     */
     public void loopSound(String name) {
-        //-- 3. Cek status mute sebelum memutar musik
+        // Cek status mute sebelum memutar musik
         if (isMuted) {
-            return; // Jangan putar musik jika sedang di-mute
+            return;
         }
         Clip clip = sounds.get(name);
         if (clip != null && !clip.isRunning()) {
@@ -79,6 +107,10 @@ public class AudioManager {
         }
     }
 
+    /**
+     * Menghentikan klip audio yang sedang berjalan.
+     * @param name Nama kunci dari suara yang akan dihentikan.
+     */
     public void stopSound(String name) {
         Clip clip = sounds.get(name);
         if (clip != null && clip.isRunning()) {

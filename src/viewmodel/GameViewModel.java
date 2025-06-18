@@ -2,117 +2,198 @@ package viewmodel;
 
 import audio.AudioManager;
 import model.*;
+import javax.swing.Timer;
 import java.awt.*;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.Random;
-import javax.swing.Timer; // Import Timer
+import java.util.concurrent.CopyOnWriteArrayList;
 
+/**
+ * GameViewModel adalah "otak" dari permainan.
+ * Kelas ini memegang semua state (kondisi) permainan, mengelola logika utama game loop,
+ * dan menyediakan antarmuka (API) untuk View (GamePanel) agar bisa menampilkan data
+ * dan mengirimkan input dari pengguna.
+ */
 public class GameViewModel {
-    private final HasilDAO hasilDAO;
+
+    // Dependensi & State Utama
+    private final ResultDAO resultDAO;
+    private GameState gameState;
     private Player player;
     private Lasso lasso;
     private final List<Food> foodItems;
-    //-- 1. List baru untuk menampung semua objek skor yang mengambang
     private final List<FloatingScore> floatingScores;
 
+    // State Sesi Permainan
     private int currentScore;
     private int currentCount;
     private String username;
-    private final Random random = new Random();
-    public enum GameState { START_SCREEN, PLAYING, PAUSED }
-    private GameState gameState;
-    //-- 1. Timer untuk mengatur durasi state aksi (berjalan/makan)
-    private Timer playerActionTimer;
-    // Tambahkan variabel ini di atas class GameViewModel
-    private long lastFootstepTime = 0;
-    private final long FOOTSTEP_DELAY = 250; // Jeda 250 ms antar langkah
 
-    //-- 1. Definisikan data makanan dan skornya di sini
+    // Konfigurasi Gameplay
+    private final Random random = new Random();
+    private Timer playerActionTimer;
+    private long lastFootstepTime = 0;
+    private static final long FOOTSTEP_DELAY = 250; // Jeda antar suara langkah (ms)
+
+    // Data Makanan
     private final String[] positiveFoodNames = {"steak", "hotdog", "hamburger", "cheesecake", "chocolate", "pudding", "sushi"};
     private final int[] positiveFoodScores = {20, 20, 20, 10, 10, 10, 10};
-
     private final String[] negativeFoodNames = {"carrot", "green", "corn", "eggplant", "cucumber"};
     private final int[] negativeFoodScores = {-10, -10, -10, -10, -10};
 
+    /**
+     * Constructor untuk GameViewModel.
+     * Menginisialisasi semua state awal dan data access object.
+     */
     public GameViewModel() {
-        this.hasilDAO = new HasilDAO();
+        this.resultDAO = new ResultDAO();
         this.foodItems = new CopyOnWriteArrayList<>();
-        // Inisialisasi list baru
         this.floatingScores = new CopyOnWriteArrayList<>();
         this.gameState = GameState.START_SCREEN;
     }
 
-    //-- 2. Tambahkan metode untuk PAUSE dan RESUME
-    public void pauseGame() {
-        if (this.gameState == GameState.PLAYING) {
-            this.gameState = GameState.PAUSED;
-        }
-    }
+    // =========================================================================
+    // METODE PUBLIK (API UNTUK VIEW)
+    // =========================================================================
 
-    public void resumeGame() {
-        if (this.gameState == GameState.PAUSED) {
-            this.gameState = GameState.PLAYING;
-        }
-    }
+    public enum GameState { START_SCREEN, PLAYING, PAUSED }
 
+    /** Memulai sesi permainan baru. */
     public void startGame(String username, int panelWidth, int panelHeight) {
         this.username = username;
-        hasilDAO.createUserIfNotExist(this.username);
+        resultDAO.createUserIfNotExist(this.username);
         this.currentScore = 0;
         this.currentCount = 0;
         this.player = new Player(panelWidth / 2, panelHeight / 2);
         this.lasso = new Lasso(player.getPosition());
         this.gameState = GameState.PLAYING;
         foodItems.clear();
+        floatingScores.clear();
     }
 
+    /** Menghentikan permainan dan menyimpan skor ke database. */
     public void stopGameAndSave() {
         if (this.username != null && !this.username.trim().isEmpty()) {
             if (currentScore > 0 || currentCount > 0) {
-                Hasil sessionResult = new Hasil(username, currentScore, currentCount);
-                hasilDAO.saveOrUpdate(sessionResult);
+                Result sessionResult = new Result(username, currentScore, currentCount);
+                resultDAO.saveOrUpdate(sessionResult);
             }
         }
         this.gameState = GameState.START_SCREEN;
     }
 
+    /** Menjeda permainan. */
+    public void pauseGame() {
+        if (this.gameState == GameState.PLAYING) {
+            this.gameState = GameState.PAUSED;
+        }
+    }
+
+    /** Melanjutkan permainan dari jeda. */
+    public void resumeGame() {
+        if (this.gameState == GameState.PAUSED) {
+            this.gameState = GameState.PLAYING;
+        }
+    }
+
+    /** Menembakkan laso dari posisi pemain. */
+    public void fireLasso(Point target) {
+        if (player == null) return;
+        AudioManager.getInstance().playSound("eat_sound");
+
+        Food previouslyCaughtFood = lasso.getCaughtFood();
+        if (previouslyCaughtFood != null) {
+            previouslyCaughtFood.setState(Food.FoodState.DEFAULT);
+        }
+
+        lasso.reset();
+        lasso.fire(target);
+        setPlayerActionState(Player.PlayerState.EATING, 500);
+    }
+
+    /** Menggerakkan pemain dan menangani batasan layar. */
+    public void movePlayer(String direction, int panelWidth, int panelHeight) {
+        if (player == null) return;
+        player.setState(Player.PlayerState.WALKING);
+        int speed = 4;
+
+        switch (direction) {
+            case "UP": player.move(0, -speed); break;
+            case "DOWN": player.move(0, speed); break;
+            case "LEFT": player.move(-speed, 0); player.setFacing(Player.Direction.LEFT); break;
+            case "RIGHT": player.move(speed, 0); player.setFacing(Player.Direction.RIGHT); break;
+        }
+
+        // Logika "clamping" untuk menjaga pemain di dalam layar
+        Point currentPos = player.getPosition();
+        int newX = currentPos.x;
+        int newY = currentPos.y;
+        int halfWidth = Player.WIDTH / 2;
+        int halfHeight = Player.HEIGHT / 2;
+        newX = Math.max(halfWidth, Math.min(newX, panelWidth - halfWidth));
+        newY = Math.max(halfHeight, Math.min(newY, panelHeight - halfHeight));
+        player.setPosition(newX, newY);
+
+        // Memutar suara langkah dengan jeda
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastFootstepTime > FOOTSTEP_DELAY) {
+            AudioManager.getInstance().playSound("footstep");
+            lastFootstepTime = currentTime;
+        }
+    }
+
+    /** Menghentikan animasi berjalan dan mengembalikan state pemain ke IDLE. */
+    public void stopWalking() {
+        if (player != null && player.getState() == Player.PlayerState.WALKING) {
+            player.setState(Player.PlayerState.IDLE);
+        }
+    }
+
+    // =========================================================================
+    // METODE UTAMA GAME LOOP
+    // =========================================================================
+
+    /**
+     * Metode utama yang dipanggil di setiap frame oleh GamePanel.
+     * Metode ini berfungsi sebagai "sutradara" yang mendelegasikan tugas-tugas update.
+     */
     public void updateGame(int panelWidth, int panelHeight) {
         if (gameState != GameState.PLAYING) return;
 
-        //-- 2. Update dan hapus skor mengambang yang sudah tidak aktif
+        updateFloatingScores();
+        updateLasso(panelWidth, panelHeight);
+        updateFoodItems(panelWidth, panelHeight);
+        trySpawningNewFood(panelWidth, panelHeight);
+    }
+
+    // =========================================================================
+    // METODE HELPER UNTUK LOGIKA GAME
+    // =========================================================================
+
+    /** Mengupdate posisi dan sisa hidup dari setiap skor mengambang. */
+    private void updateFloatingScores() {
         for (FloatingScore fs : floatingScores) {
             fs.update();
         }
         floatingScores.removeIf(fs -> !fs.isAlive());
+    }
 
-
-        //-- LOGIKA BARU UNTUK MENENTUKAN POSISI AWAL LIDAH --
-
-        // 1. Dapatkan posisi tengah dan arah hadap pemain
+    /** Mengupdate posisi laso dan menangani logika saat makanan berhasil ditarik. */
+    private void updateLasso(int panelWidth, int panelHeight) {
         Point playerCenter = player.getPosition();
         Player.Direction facing = player.getFacing();
-
-        // 2. Tentukan offset dari tengah karakter ke mulutnya
-        //    (Anda bisa mengubah angka ini sesuai dengan gambar karakter Anda)
-        int forwardOffset = 30; // Seberapa jauh ke depan dari tengah
-        int verticalOffset = 35;  // Seberapa jauh ke bawah dari tengah
-
-        // 3. Hitung posisi akhir mulut berdasarkan arah hadap
+        int forwardOffset = 30;
+        int verticalOffset = 35;
         Point tongueOrigin;
+
         if (facing == Player.Direction.RIGHT) {
-            // Jika menghadap ke kanan, offset maju ditambahkan
             tongueOrigin = new Point(playerCenter.x + forwardOffset, playerCenter.y + verticalOffset);
-        } else { // Menghadap ke KIRI
-            // Jika menghadap ke kiri, offset maju dikurangi
+        } else {
             tongueOrigin = new Point(playerCenter.x - forwardOffset, playerCenter.y + verticalOffset);
         }
 
-        // 4. Gunakan posisi mulut (tongueOrigin) sebagai titik awal laso
         lasso.update(tongueOrigin, foodItems);
 
-
-        // Sisa dari logika di bawah ini tidak berubah...
         if (lasso.getState() == Lasso.LassoState.RETRACTING && lasso.getEndPoint().distance(tongueOrigin) < 20) {
             Food caughtFood = lasso.getCaughtFood();
             if (caughtFood != null) {
@@ -120,121 +201,50 @@ public class GameViewModel {
             }
             lasso.reset();
         }
+    }
 
+    /** Mengupdate posisi makanan, menangani animasi ke keranjang, dan menghapus makanan di luar layar. */
+    private void updateFoodItems(int panelWidth, int panelHeight) {
         for (Food food : foodItems) {
             if (food.getState() == Food.FoodState.ANIMATING_TO_BASKET) {
-
-                //-- SESUAIKAN KODE INI: Tentukan posisi target keranjang yang baru
-                int basketWidth = 260;
-                int basketHeight = 220;
-                int basketX = panelWidth - basketWidth;
-                int basketY = (panelHeight - basketHeight) / 2;
-                // Targetkan bagian tengah keranjang untuk animasi yang lebih baik
-                Point basketPosition = new Point(basketX + basketWidth / 2, basketY + basketHeight / 2);
-
-                double distance = food.getPosition().distance(basketPosition);
-
-                if (distance < 15) {
-                    currentScore += food.getValue();
-                    currentCount++;
-                    //-- 3. Buat objek FloatingScore saat makanan sampai di keranjang
-                    createFloatingScore(food, basketPosition);
-                    foodItems.remove(food);
-                } else {
-                    double dx = basketPosition.x - food.getPosition().x;
-                    double dy = basketPosition.y - food.getPosition().y;
-                    double ratio = 15 / distance;
-                    food.getPosition().x += (int) (dx * ratio);
-                    food.getPosition().y += (int) (dy * ratio);
-                }
+                handleFoodAnimationToBasket(food, panelWidth, panelHeight);
             } else {
                 food.move();
             }
         }
-
-        //-- 2. Logika generateFood dipanggil dari sini
-        if (random.nextInt(100) > 95 && foodItems.size() < 15) {
-            generateFood(panelWidth, panelHeight);
-        }
-
         foodItems.removeIf(food -> food.getState() == Food.FoodState.DEFAULT && (food.getPosition().x > panelWidth + 50 || food.getPosition().x < -50));
     }
 
-    //-- 4. Metode helper baru untuk membuat FloatingScore
-    private void createFloatingScore(Food food, Point position) {
-        int value = food.getValue();
-        String text = (value > 0 ? "+" : "") + value; // Tambahkan tanda '+' jika positif
-        Color color = (value > 0 ? new Color(34, 139, 34) : Color.RED); // Hijau untuk positif, Merah untuk negatif
+    /** Menangani logika spesifik saat makanan beranimasi menuju keranjang skor. */
+    private void handleFoodAnimationToBasket(Food food, int panelWidth, int panelHeight) {
+        int basketWidth = 260;
+        int basketHeight = 220;
+        int basketX = panelWidth - basketWidth;
+        int basketY = (panelHeight - basketHeight) / 2;
+        Point basketPosition = new Point(basketX + basketWidth / 2, basketY + basketHeight / 2);
 
-        floatingScores.add(new FloatingScore(text, position, color));
-    }
-
-    //-- 5. Getter baru agar View bisa mengakses list skor mengambang
-    public List<FloatingScore> getFloatingScores() {
-        return floatingScores;
-    }
-
-    //-- 2. Metode baru untuk mengubah state pemain secara sementara
-    // Metode setPlayerActionState sekarang hanya untuk aksi non-gerakan (EAT)
-    private void setPlayerActionState(Player.PlayerState actionState, int durationMs) {
-        if (player.getState() == actionState && playerActionTimer != null && playerActionTimer.isRunning()) {
-            playerActionTimer.restart();
-            return;
-        }
-        if (playerActionTimer != null) {
-            playerActionTimer.stop();
-        }
-        player.setState(actionState);
-        playerActionTimer = new Timer(durationMs, e -> player.setState(Player.PlayerState.IDLE));
-        playerActionTimer.setRepeats(false);
-        playerActionTimer.start();
-    }
-
-    public void fireLasso(Point target) {
-        if (lasso.isIdle()) {
-            AudioManager.getInstance().playSound("eat_sound"); // <-- Tambahkan ini
-            lasso.fire(target);
-            setPlayerActionState(Player.PlayerState.EATING, 500);
+        if (food.getPosition().distance(basketPosition) < 15) {
+            currentScore += food.getValue();
+            currentCount++;
+            createFloatingScore(food, basketPosition);
+            foodItems.remove(food);
+        } else {
+            double dx = basketPosition.x - food.getPosition().x;
+            double dy = basketPosition.y - food.getPosition().y;
+            double ratio = 15 / (food.getPosition().distance(basketPosition));
+            food.getPosition().x += (int) (dx * ratio);
+            food.getPosition().y += (int) (dy * ratio);
         }
     }
 
-    // Metode movePlayer tidak lagi menggunakan timer, hanya mengubah state
-    public void movePlayer(String direction) {
-        if (player == null) return;
-
-        // Logika untuk memutar suara langkah dengan jeda
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastFootstepTime > FOOTSTEP_DELAY) {
-            AudioManager.getInstance().playSound("footstep");
-            lastFootstepTime = currentTime;
-        }
-
-        player.setState(Player.PlayerState.WALKING); // Langsung set state ke WALKING
-
-        int speed = 10;
-        switch (direction) {
-            case "UP": player.move(0, -speed); break;
-            case "DOWN": player.move(0, speed); break;
-            case "LEFT":
-                player.move(-speed, 0);
-                player.setFacing(Player.Direction.LEFT);
-                break;
-            case "RIGHT":
-                player.move(speed, 0);
-                player.setFacing(Player.Direction.RIGHT);
-                break;
+    /** Mencoba memunculkan makanan baru secara acak. */
+    private void trySpawningNewFood(int panelWidth, int panelHeight) {
+        if (random.nextInt(100) > 95 && foodItems.size() < 15) {
+            generateFood(panelWidth, panelHeight);
         }
     }
 
-    //-- Metode baru untuk mengembalikan state ke IDLE saat tombol dilepas
-    public void stopWalking() {
-        // Hanya ubah ke IDLE jika state saat ini adalah WALKING
-        if (player != null && player.getState() == Player.PlayerState.WALKING) {
-            player.setState(Player.PlayerState.IDLE);
-        }
-    }
-
-
+    /** Membuat objek makanan baru dengan tipe dan posisi acak. */
     private void generateFood(int panelWidth, int panelHeight) {
         String name;
         int value;
@@ -252,40 +262,52 @@ public class GameViewModel {
             value = negativeFoodScores[index];
         }
 
-        //-- LOGIKA BARU UNTUK ZONA SPAWN --
-
-        // 1. Tentukan batas zona atas dan bawah
         int topZoneLimit = panelHeight / 3;
         int bottomZoneStart = panelHeight * 2 / 3;
-        int foodSize = 64; // Samakan dengan ukuran di GamePanel
+        int foodSize = 64;
+        int yPos = random.nextBoolean()
+                ? random.nextInt(topZoneLimit - foodSize)
+                : bottomZoneStart + random.nextInt(panelHeight - bottomZoneStart - foodSize);
 
-        int yPos;
-        boolean fromTop = random.nextBoolean();
-
-        if (fromTop) {
-            // Muncul secara acak di 1/3 bagian ATAS layar
-            // Pastikan seluruh gambar berada di dalam zona
-            yPos = random.nextInt(topZoneLimit - foodSize);
-        } else {
-            // Muncul secara acak di 1/3 bagian BAWAH layar
-            yPos = bottomZoneStart + random.nextInt(panelHeight - bottomZoneStart - foodSize);
-        }
-
-        // Penggunaan random.nextInt() memastikan posisi Y tidak akan simetris (tidak selalu di baris yang sama).
-
-        // Tentukan posisi X dan kecepatan seperti sebelumnya
-        int xPos = fromTop ? panelWidth : -30;
-        int speed = fromTop ? -(random.nextInt(3) + 1) : (random.nextInt(3) + 1);
+        int xPos = yPos < topZoneLimit ? panelWidth : -30;
+        int speed = yPos < topZoneLimit ? -(random.nextInt(3) + 1) : (random.nextInt(3) + 1);
 
         foodItems.add(new Food(name, value, type, xPos, yPos, speed));
     }
 
-    // Getters
+    /** Membuat objek skor mengambang. */
+    private void createFloatingScore(Food food, Point position) {
+        int value = food.getValue();
+        String text = (value > 0 ? "+" : "") + value;
+        Color color = (value > 0 ? new Color(34, 139, 34) : Color.RED);
+        floatingScores.add(new FloatingScore(text, position, color));
+    }
+
+    /** Mengatur state pemain untuk aksi sesaat (seperti makan). */
+    private void setPlayerActionState(Player.PlayerState actionState, int durationMs) {
+        if (player.getState() == actionState && playerActionTimer != null && playerActionTimer.isRunning()) {
+            playerActionTimer.restart();
+            return;
+        }
+        if (playerActionTimer != null) {
+            playerActionTimer.stop();
+        }
+        player.setState(actionState);
+        playerActionTimer = new Timer(durationMs, e -> player.setState(Player.PlayerState.IDLE));
+        playerActionTimer.setRepeats(false);
+        playerActionTimer.start();
+    }
+
+    // =========================================================================
+    // GETTERS (Untuk dibaca oleh View)
+    // =========================================================================
+
     public Player getPlayer() { return player; }
     public Lasso getLasso() { return lasso; }
     public List<Food> getFoodItems() { return foodItems; }
     public int getCurrentScore() { return currentScore; }
     public int getCurrentCount() { return currentCount; }
     public GameState getGameState() { return gameState; }
-    public List<Hasil> getAllScores() { return hasilDAO.getAllHasil(); }
+    public List<Result> getAllScores() { return resultDAO.getAllHasil(); }
+    public List<FloatingScore> getFloatingScores() { return floatingScores; }
 }

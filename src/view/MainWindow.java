@@ -1,9 +1,9 @@
 package view;
 
 import viewmodel.GameViewModel;
+import audio.AudioManager;
 import javax.swing.*;
 import java.awt.*;
-import audio.AudioManager; // Import AudioManager
 
 public class MainWindow extends JFrame {
     private final CardLayout cardLayout;
@@ -17,34 +17,37 @@ public class MainWindow extends JFrame {
     public MainWindow() {
         this.viewModel = new GameViewModel();
 
-        loadAssetsAndAudio(); // Panggil metode baru
+        // load asset dan audio
+        loadAssetsAndAudio();
 
+        // buat panel utama
         this.cardLayout = new CardLayout();
         this.mainPanel = new JPanel(cardLayout);
 
-        // Create panels
+        // buat panel start dan panel game
         this.startScreenPanel = new StartScreenPanel(this, viewModel);
         this.gamePanel = new GamePanel(this, viewModel);
 
-
-
-        // Add panels to the main card layout
+        // tambahkan panel ke panel utama
         mainPanel.add(startScreenPanel, "StartScreen");
         mainPanel.add(gamePanel, "GamePanel");
-
         this.add(mainPanel);
+
+        // settingan general game
         this.setTitle("Jeff is Hungry");
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         this.setSize(900, 700);
         this.setLocationRelativeTo(null); // Center the window
 
+        // tampilkan start screen
         showPanel("StartScreen"); // Tampilkan menu awal dan putar musik
 
         this.setVisible(true);
     }
 
+    // method untuk load asset dan audio
     private void loadAssetsAndAudio() {
-        // --- Memuat Ikon Jendela ---
+        // icon di window
         try {
             Image icon = new ImageIcon(getClass().getResource("/icon.png")).getImage();
             this.setIconImage(icon);
@@ -52,7 +55,7 @@ public class MainWindow extends JFrame {
             System.err.println("Favicon not found.");
         }
 
-        // --- Memuat Kursor Kustom ---
+        // cursor custom
         Toolkit toolkit = Toolkit.getDefaultToolkit();
         try {
             Image menuCursorImg = new ImageIcon(getClass().getResource("/cursor/menu-arrow.png")).getImage();
@@ -60,18 +63,13 @@ public class MainWindow extends JFrame {
         } catch (Exception e) { menuCursor = Cursor.getDefaultCursor(); }
 
         try {
-            // 1. Buat ImageIcon dulu untuk memastikan gambar termuat penuh ke memori.
             ImageIcon cursorIcon = new ImageIcon(getClass().getResource("/cursor/cross-ingame.png"));
             Image gameCursorImg = cursorIcon.getImage();
 
-            // 2. Sekarang, getWidth() dan getHeight() lebih aman untuk dipanggil.
-            Point hotspot = new Point(gameCursorImg.getWidth(null) / 2, gameCursorImg.getHeight(null) / 2);
-
-            // 3. Buat kursor dengan gambar dan hotspot yang sudah dihitung.
-            gameCursor = toolkit.createCustomCursor(gameCursorImg, hotspot, "game_cursor");
+            gameCursor = toolkit.createCustomCursor(gameCursorImg, new Point(0, 0), "game_cursor");
         } catch (Exception e) { gameCursor = Cursor.getDefaultCursor(); }
 
-        // --- Memuat Semua Audio ---
+        // load semua audio
         AudioManager audio = AudioManager.getInstance();
         audio.loadSound("menu_music", "/audio/background-music.wav");
         audio.loadSound("button_click", "/audio/button-click.wav");
@@ -79,8 +77,9 @@ public class MainWindow extends JFrame {
         audio.loadSound("eat_sound", "/audio/eat-sound.wav");
     }
 
+    // mengatur panel yang ditampilkan
     public void showPanel(String panelName) {
-        // Logika untuk memutar/menghentikan musik saat berganti panel
+        // logika untuk memutar/menghentikan musik saat berganti panel
         if (panelName.equals("GamePanel")) {
             AudioManager.getInstance().stopSound("menu_music");
             this.setCursor(gameCursor);

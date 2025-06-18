@@ -13,22 +13,20 @@ public class CreditsDialog extends JDialog {
     public CreditsDialog(JFrame parent, Font customFont) {
         super(parent, "Credits", true);
 
-        // Panel Utama
+        // panel Utama
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         mainPanel.setBackground(new Color(240, 220, 180));
 
-        // Judul
+        // judul
         JLabel titleLabel = new JLabel("Credits & Attributions");
         titleLabel.setFont(customFont.deriveFont(Font.BOLD, 24f));
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         mainPanel.add(titleLabel);
         mainPanel.add(Box.createRigidArea(new Dimension(0, 20)));
 
-        // --- KETERANGAN: Daftar kredit diperbarui di sini ---
-
-        // --- Aset Visual ---
+        // credit-credit dari setiap asset
         mainPanel.add(createCreditLabel("Background Image:", "https://crusenho.itch.io/beriesadventureseaside", customFont));
         mainPanel.add(createCreditLabel("Food Assets:", "", customFont));
         mainPanel.add(createCreditLabel("", "https://ghostpixxells.itch.io/pixelfood", customFont));
@@ -36,17 +34,18 @@ public class CreditsDialog extends JDialog {
         mainPanel.add(createCreditLabel("Cursor Assets:", "https://aspecsgaming.itch.io/pixel-art-cursors", customFont));
         mainPanel.add(createCreditLabel("Fonts (Pixelify Sans):", "https://fonts.google.com/specimen/Pixelify+Sans", customFont));
 
-        mainPanel.add(Box.createRigidArea(new Dimension(0, 15))); // Memberi spasi antar kategori
+//      // batas
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 15)));
 
-        // --- Aset Audio ---
+        // asset audio
         mainPanel.add(createCreditLabel("Background Music:", "https://tallbeard.itch.io/music-loop-bundle", customFont));
         mainPanel.add(createCreditLabel("SFX:", "", customFont));
         mainPanel.add(createCreditLabel("", "https://stormyman.itch.io/goofy-sounds-for-scary-monsters", customFont));
         mainPanel.add(createCreditLabel("", "https://mayragandra.itch.io/free-footsteps-sound-effects", customFont));
 
-        mainPanel.add(Box.createVerticalGlue()); // Mendorong tombol ke bawah
+        mainPanel.add(Box.createVerticalGlue());
 
-        // Tombol Close
+        // tombol close
         JButton closeButton = new JButton("Close");
         closeButton.setFont(customFont.deriveFont(18f));
         closeButton.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -61,6 +60,7 @@ public class CreditsDialog extends JDialog {
         closeButton.requestFocusInWindow();
     }
 
+    // label dari tiap credit
     private JPanel createCreditLabel(String title, String url, Font font) {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 2));
         panel.setOpaque(false);
