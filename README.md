@@ -69,9 +69,13 @@ resources/
 ## Kredit Aset
 
 - Background: [Cruisenho - itch.io](https://crusenho.itch.io/beriesadventureseaside)
-- Food sprites: [GhostPixxells - itch.io](https://ghostpixxells.itch.io/pixelfood)
+- Food sprites:
+  [GhostPixxells - itch.io](https://ghostpixxells.itch.io/pixelfood)
+  [AlexKovacArt - itch.io](https://alexkovacsart.itch.io/free-pixel-art-foods)
 - Fonts: [Pixelify Sans - Google Fonts](https://fonts.google.com/specimen/Pixelify+Sans)
-- SFX: [Stormyman, Mayragandra, Tallbeard, Aspecsgaming - itch.io]
+- SFX:
+  [Stormyman - itch.io](https://stormyman.itch.io/goofy-sounds-for-scary-monsters)
+  [Mayragandra - itch.io](https://mayragandra.itch.io/free-footsteps-sound-effects)
 - Musik: [Tallbeard - itch.io](https://tallbeard.itch.io/music-loop-bundle)
 - Cursor: [Aspecsgaming - itch.io](https://aspecsgaming.itch.io/pixel-art-cursors)
 
