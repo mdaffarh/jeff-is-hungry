@@ -1,3 +1,7 @@
+//        Saya Muhammad Daffa Rizmawan Harahap mengerjakan evaluasi Tugas Masa Depan dalam mata kuliah
+//        Desain dan Pemrograman Berorientasi Objek untuk keberkahanNya maka saya
+//        tidak melakukan kecurangan seperti yang telah dispesifikasikan. Aamiin.
+
 package view;
 
 import viewmodel.GameViewModel;

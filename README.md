@@ -40,8 +40,13 @@ CREATE TABLE thasil (
 
 ### 3. Build & Jalankan
 ```sh
-javac -d out $(find src -name "*.java")
-java -cp out Main
+mkdir bin
+
+javac -d bin --source-path src -cp "lib\mysql-connector-j-9.3.0.jar" src\view\MainWindow.java
+
+xcopy resources bin /E /I /Y
+
+java -cp "bin;lib\mysql-connector-j-9.3.0.jar" view.MainWindow
 ```
 Atau gunakan IDE (IntelliJ, NetBeans, dsb), import sebagai project Java, lalu run file `Main.java`.
 

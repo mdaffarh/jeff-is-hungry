@@ -14,6 +14,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * dan menyediakan antarmuka (API) untuk View (GamePanel) agar bisa menampilkan data
  * dan mengirimkan input dari pengguna.
  */
+
 public class GameViewModel {
 
     // Dependensi & State Utama
@@ -308,6 +309,6 @@ public class GameViewModel {
     public int getCurrentScore() { return currentScore; }
     public int getCurrentCount() { return currentCount; }
     public GameState getGameState() { return gameState; }
-    public List<Result> getAllScores() { return resultDAO.getAllHasil(); }
+    public List<Result> getAllScores() { return resultDAO.getAllResult(); }
     public List<FloatingScore> getFloatingScores() { return floatingScores; }
 }
