@@ -38,11 +38,7 @@ CREATE TABLE `thasil` (
 --
 
 INSERT INTO `thasil` (`username`, `skor`, `count`) VALUES
-('adw', 100, 1),
-('Dudul', 3870, 79),
-('k', 0, 0),
-('kokok', 0, 0),
-('Udin', 4590, 74);
+('Dudul', 3870, 79);
 
 --
 -- Indexes for dumped tables
